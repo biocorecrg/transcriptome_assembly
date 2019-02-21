@@ -10,7 +10,7 @@ RUN bash -c 'curl -k -L https://downloads.sourceforge.net/project/skewer/Binarie
 RUN chmod +x /usr/local/bin/skewer
 
 # Installing MULTIQC
-RUN pip install -Iv https://github.com/ewels/MultiQC/archive/v${MULTIQC_VERSION}.tar.gz 
+RUN pip install --no-cache-dir -Iv https://github.com/ewels/MultiQC/archive/v${MULTIQC_VERSION}.tar.gz 
 
 #Adding perl script for improving multiQC report
 RUN bash -c 'curl -k -L  https://github.com/CRG-CNAG/make_tool_desc_for_multiqc/archive/v${TOOL_MULTIQC_VERSION}.tar.gz > tool_ver.tar.gz'
@@ -24,5 +24,3 @@ RUN rm -fr make_tool_desc_for_multiqc-* v${TOOL_MULTIQC_VERSION}.tar.gz
 RUN bash -c 'curl -k -L https://github.com/TransDecoder/TransDecoder/archive/TransDecoder-v${TRANS_DECODER_VERSION}.tar.gz > transdec.tar.gz'
 RUN tar -zvxf transdec.tar.gz; cp TransDecoder-TransDecoder-v${TRANS_DECODER_VERSION}/TransDecoder.LongOrfs /usr/local/bin/; cp TransDecoder-TransDecoder-v${TRANS_DECODER_VERSION}/TransDecoder.Predict /usr/local/bin/ 
 
-#cleaning
-RUN yum clean all

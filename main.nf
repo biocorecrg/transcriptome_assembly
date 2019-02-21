@@ -21,11 +21,14 @@ log.info """
 ====================================================
 BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
 ====================================================
-pairs                         : ${params.pairs}
-email                         : ${params.email}
-minsize (after filtering)     : ${params.minsize}
-orientation (RF or FR)        : ${params.orientation}
-output (output folder)        : ${params.output}
+pairs                             : ${params.pairs}
+email                             : ${params.email}
+minsize (after filtering)         : ${params.minsize}
+orientation (RF or FR)            : ${params.orientation}
+genetic code                      : ${params.geneticode}
+output (output folder)            : ${params.output}
+blastDB (uniprot or uniRef90)     : ${params.blastDB}
+batchseq                          : ${params.batchseq}
 """
 
 if (params.help) exit 1
@@ -38,7 +41,7 @@ outputQC        = "${outputfolder}/QC"
 outputTrimmed   = "${outputfolder}/trimmedReads"
 outputMultiQC   = "${outputfolder}/multiQC"
 outputMapping   = "${outputfolder}/Alignments"
-outputAssembly  = "${outputfolder}/Estimated_counts"
+outputAssembly  = "${outputfolder}/Assembly"
 
 util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
@@ -161,7 +164,7 @@ process collectTrinityRes {
     file("*") from components.collect()
 
     output:
-    file ("Trinity.fasta") 
+    file ("Trinity.fasta") into transcripts
     
     script:
 
@@ -171,6 +174,49 @@ process collectTrinityRes {
     ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """
 }
+
+process trinotate {
+    publishDir outputAssembly, mode: 'copy', pattern: "longest*"
+    
+    input:
+    file("transcripts.fasta") from transcripts
+
+    output:
+    file ("longest_orfs.pep") into orfs_for_blastp 
+    
+    script:
+    """
+	TransDecoder.LongOrfs -t transcripts.fasta -G ${params.geneticode} -S --output_dir ./
+    """
+}
+
+process blastP {  
+    tag "$orf_batches" 
+     
+    input:
+    file(orf_batches) from orfs_for_blastp.splitFasta( by: params.batchseq, file: true )
+
+    output:
+    file ("blastp.outfmt6") into blastout
+    
+    script:
+    """
+    blastp -query ${orf_batches} -db ${params.blastDB} -max_target_seqs 1 \
+    -outfmt 6 -evalue 1e-5 -num_threads ${task.cpus} > blastp.outfmt6
+    """
+}
+
+process concatenateBlastRes {    
+    input:
+    file("blastres*") from blastout.collect()
+
+        
+    script:
+    """
+    cat blastres* >> blastp.all.results
+    """
+}
+
 
 /*
 * send mail

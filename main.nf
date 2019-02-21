@@ -38,8 +38,10 @@ outputQC        = "${outputfolder}/QC"
 outputTrimmed   = "${outputfolder}/trimmedReads"
 outputMultiQC   = "${outputfolder}/multiQC"
 outputMapping   = "${outputfolder}/Alignments"
-est_folder      = "${outputfolder}/Estimated_counts"
-rep_folder      = "${outputfolder}/Reports"
+outputAssembly  = "${outputfolder}/Estimated_counts"
+
+util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
+support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
 
 
 /*
@@ -116,28 +118,65 @@ process fastqcTrim {
 //trimmed_pair_for_assembly = trimmed_pair1_for_assembly.mix(trimmed_pair2_for_assembly).groupTuple().collect()
 
 
-process Inchworm {
-
+process TrinityStep1 {
+    label 'big_mem_cpus'
+    
     input:
     set val(pair1), file(pair1) from trimmed_pair1_for_assembly.groupTuple()
     set val(pair2), file(pair2) from trimmed_pair2_for_assembly.groupTuple()
 
-
+    output:
+    file ("trinity_out_dir/read_partitions/*/*/*.trinity.reads.fa") into single_read_partitions
+    
     script:
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
-    
+
     """
-    echo ${pair1_list} ${pair2_list}
+    Trinity --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
     """
 }
 
+
+process TrinityStep2 {
+    tag { partition_file }
+    
+    input:
+    file(partition_file) from single_read_partitions.flatten()
+
+    output:
+    file ("${partition_file}.out.Trinity.fasta") optional true into components
+    
+    script:
+
+    """
+    Trinity --single ${partition_file} --output ${partition_file}.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec
+    """
+}
+
+process collectTrinityRes {
+    publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
+    
+    input:
+    file("*") from components.collect()
+
+    output:
+    file ("Trinity.fasta") 
+    
+    script:
+
+    """
+	cat *.fasta >> Trinity.fasta
+	${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
+    ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
+    """
+}
 
 /*
 * send mail
 
 workflow.onComplete {
-    def subject = 'indropSeq execution'
+    def subject = 'Transcriptome assembly execution'
     def recipient = "${params.email}"
     def attachment = "${outputMultiQC}/multiqc_report.html"
 

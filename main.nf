@@ -28,6 +28,7 @@ orientation (RF or FR)            : ${params.orientation}
 genetic code                      : ${params.geneticode}
 output (output folder)            : ${params.output}
 blastDB (uniprot or uniRef90)     : ${params.blastDB}
+pfamDB (pfam database path)       : ${params.pfamDB}
 batchseq                          : ${params.batchseq}
 """
 
@@ -42,6 +43,7 @@ outputTrimmed   = "${outputfolder}/trimmedReads"
 outputMultiQC   = "${outputfolder}/multiQC"
 outputMapping   = "${outputfolder}/Alignments"
 outputAssembly  = "${outputfolder}/Assembly"
+outputAnnotation= "${outputfolder}/Annotation"
 
 util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
@@ -85,7 +87,6 @@ process QConRawReads {
 process trimReads {
     publishDir outputTrimmed
     tag { pair_id }
-    label 'rnaseq_cpus'
 
     input:
     set pair_id, file(reads) from (raw_reads_for_trimming )
@@ -134,7 +135,6 @@ process TrinityStep1 {
     script:
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
-
     """
     Trinity --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
     """
@@ -151,7 +151,6 @@ process TrinityStep2 {
     file ("${partition_file}.out.Trinity.fasta") optional true into components
     
     script:
-
     """
     Trinity --single ${partition_file} --output ${partition_file}.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec
     """
@@ -164,35 +163,35 @@ process collectTrinityRes {
     file("*") from components.collect()
 
     output:
-    file ("Trinity.fasta") into transcripts
+    file ("Trinity.fasta") into (transcripts, transcripts_for_prediction)
     
     script:
-
     """
-	cat *.fasta >> Trinity.fasta
-	${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
+    cat *.fasta >> Trinity.fasta
+    ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
     ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """
 }
 
-process trinotate {
+process TransDecoder {
     publishDir outputAssembly, mode: 'copy', pattern: "longest*"
     
     input:
-    file("transcripts.fasta") from transcripts
+    file(transcripts)
 
     output:
-    file ("longest_orfs.pep") into orfs_for_blastp 
+    file ("longest_orfs.pep") into (orfs_for_blastp, orfs_for_pfam)
+    file ("${transcripts}.transdecoder_dir") into transdecoder_dir
     
     script:
     """
-	TransDecoder.LongOrfs -t transcripts.fasta -G ${params.geneticode} -S --output_dir ./
+	TransDecoder.LongOrfs -t ${transcripts} -G ${params.geneticode} -S 
+	cp ${transcripts}.transdecoder_dir/longest* .
     """
 }
 
 process blastP {  
-    tag "$orf_batches" 
-     
+    tag "$orf_batches"  
     input:
     file(orf_batches) from orfs_for_blastp.splitFasta( by: params.batchseq, file: true )
 
@@ -207,16 +206,65 @@ process blastP {
 }
 
 process concatenateBlastRes {    
+    publishDir outputAnnotation, mode: 'copy'
     input:
     file("blastres*") from blastout.collect()
 
-        
+    output:
+    file ("blastp.all.results") into blastoutall
+
     script:
     """
     cat blastres* >> blastp.all.results
     """
 }
 
+process pfam_search {  
+    tag "$orf_batches" 
+     
+    input:
+    file(orf_batches) from orfs_for_pfam.splitFasta( by: params.batchseq, file: true )
+
+    output:
+    file ("pfam.domtblout") into pfamout
+    
+    script:
+    """
+    hmmscan --cpu ${task.cpus} --domtblout pfam.domtblout ${params.pfamDB} ${orf_batches}
+    """
+}
+
+process concatenatePfamRes {    
+    publishDir outputAnnotation, mode: 'copy'
+
+    input:
+    file("pfamout*") from pfamout.collect()
+
+    output:
+    file ("pfamout.all.results") into pfamoutall
+
+    script:
+    """
+    cat pfamout* >> pfamout.all.results
+    """
+}
+
+process transcoderPredict {    
+    publishDir outputAnnotation, mode: 'copy'
+    label 'temp'
+
+    input:
+    file(blastoutall)
+    file(pfamoutall)
+    file(transcripts_for_prediction)
+    file(transdecoder_dir)
+
+
+    script:
+    """
+    TransDecoder.Predict --no_refine_starts -G ${params.geneticode} -t ${transcripts_for_prediction} --retain_pfam_hits ${pfamoutall} --retain_blastp_hits ${blastoutall}
+    """
+}
 
 /*
 * send mail

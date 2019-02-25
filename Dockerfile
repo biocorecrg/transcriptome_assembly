@@ -16,13 +16,16 @@ RUN mv make_tool_desc_for_multiqc-${TOOL_MULTIQC_VERSION}/make_tool_desc_for_mul
 RUN chmod +x /usr/local/bin/make_tool_desc_for_multiqc.pl
 RUN rm -fr make_tool_desc_for_multiqc-* v${TOOL_MULTIQC_VERSION}.tar.gz 
 
-# Installing TransDecoder
+# Installing TransDecoder and its dependencies
 RUN bash -c 'curl -k -L https://github.com/TransDecoder/TransDecoder/archive/TransDecoder-v${TRANS_DECODER_VERSION}.tar.gz > transdec.tar.gz'
 RUN tar -zvxf transdec.tar.gz; ln -s $PWD/TransDecoder-TransDecoder-v${TRANS_DECODER_VERSION}/TransDecoder.LongOrfs /usr/local/bin/; ln -s $PWD/TransDecoder-TransDecoder-v${TRANS_DECODER_VERSION}/TransDecoder.Predict /usr/local/bin/ 
+RUN Rscript -e 'source("http://bioconductor.org/biocLite.R");library(BiocInstaller); biocLite("seqLogo", dep = TRUE)'
+RUN R -e 'chooseCRANmirror(ind=52); install.packages(c("ggplot2"))'
 
 # installing HMMER
 RUN bash -c 'curl -k -L http://eddylab.org/software/hmmer/hmmer-${HMMER_VERSION}.tar.gz > hmmer.tar.gz'
 RUN tar -zvxf hmmer.tar.gz; cd hmmer-${HMMER_VERSION}; ./configure; make; make install; cd easel; make install; cd ../../
+
 
 #cleaning
 RUN rm -fr *.tar.gz* .tar.bz2

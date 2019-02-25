@@ -21,22 +21,23 @@ log.info """
 ====================================================
 BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
 ====================================================
-pairs                             : ${params.pairs}
-email                             : ${params.email}
-minsize (after filtering)         : ${params.minsize}
-orientation (RF or FR)            : ${params.orientation}
-genetic code                      : ${params.geneticode}
-output (output folder)            : ${params.output}
-blastDB (uniprot or uniRef90)     : ${params.blastDB}
-pfamDB (pfam database path)       : ${params.pfamDB}
-batchseq                          : ${params.batchseq}
+pairs                               : ${params.pairs}
+email                               : ${params.email}
+minsize (after filtering)           : ${params.minsize}
+orientation (RF or FR)              : ${params.orientation}
+genetic code                        : ${params.geneticode}
+output (output folder)              : ${params.output}
+blastDB (uniprot or uniRef90)       : ${params.blastDB}
+pfamDB (pfam database path)         : ${params.pfamDB}
+minProtSize (minimum protein sized) : ${params.minProtSize}
+batchseq                            : ${params.batchseq}
 """
 
 if (params.help) exit 1
 if (params.resume) exit 1, "Are you making the classical --resume typo? Be careful!!!! ;)"
 if (params.orientation != "RF" && params.orientation != "FR")  exit 1, "Orientation not allowed. Only FR or RF" 
 
-
+minContigSize   = (params.minProtSize*3)
 outputfolder    = "${params.output}"
 outputQC        = "${outputfolder}/QC"
 outputTrimmed   = "${outputfolder}/trimmedReads"
@@ -119,8 +120,6 @@ process fastqcTrim {
     qc.fastqc()
 }
 
-//trimmed_pair_for_assembly = trimmed_pair1_for_assembly.mix(trimmed_pair2_for_assembly).groupTuple().collect()
-
 
 process TrinityStep1 {
     label 'big_mem_cpus'
@@ -136,7 +135,7 @@ process TrinityStep1 {
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
     """
-    Trinity --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
+    Trinity --min_contig_length ${minContigSize} --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
     """
 }
 
@@ -185,7 +184,7 @@ process TransDecoder {
     
     script:
     """
-	TransDecoder.LongOrfs -t ${transcripts} -G ${params.geneticode} -S 
+	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${transcripts} -G ${params.geneticode} -S 
 	cp ${transcripts}.transdecoder_dir/longest* .
     """
 }
@@ -198,12 +197,14 @@ process blastP {
     output:
     file ("blastp.outfmt6") into blastout
     
+    // fixing the --max_target_seqs problem
     script:
     """
-    blastp -query ${orf_batches} -db ${params.blastDB} -max_target_seqs 1 \
-    -outfmt 6 -evalue 1e-5 -num_threads ${task.cpus} > blastp.outfmt6
+    blastp -query ${orf_batches} -db ${params.blastDB} \
+    -outfmt 6 -evalue 1e-5 -num_threads ${task.cpus} | awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' > blastp.outfmt6
     """
 }
+
 
 process concatenateBlastRes {    
     publishDir outputAnnotation, mode: 'copy'
@@ -251,6 +252,7 @@ process concatenatePfamRes {
 
 process transcoderPredict {    
     publishDir outputAnnotation, mode: 'copy'
+    label 'temp'
 
     input:
     file(blastoutall)
@@ -266,6 +268,7 @@ process transcoderPredict {
     TransDecoder.Predict --no_refine_starts -G ${params.geneticode} -t ${transcripts_for_prediction} --retain_pfam_hits ${pfamoutall} --retain_blastp_hits ${blastoutall}
     """
 }
+
 
 /*
 * send mail

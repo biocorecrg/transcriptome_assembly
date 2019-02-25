@@ -259,6 +259,8 @@ process transcoderPredict {
     file(transcripts_for_prediction)
     file(transdecoder_dir)
 
+    output:
+    set file("Trinity.fasta.transdecoder.bed"), file("Trinity.fasta.transdecoder.cds"), file("Trinity.fasta.transdecoder.gff3"), file("Trinity.fasta.transdecoder.pep") into finalRes
 
     script:
     """

@@ -251,7 +251,6 @@ process concatenatePfamRes {
 
 process transcoderPredict {    
     publishDir outputAnnotation, mode: 'copy'
-    label 'temp'
 
     input:
     file(blastoutall)

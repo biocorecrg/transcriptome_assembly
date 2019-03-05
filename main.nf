@@ -155,7 +155,7 @@ process TrinityStep2 {
     """
     for i in ${partitions_group}/*.fa; do \
     Trinity --single \$i --output `basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
-    cat *.out >> Trinity_sub.fasta
+    cat *.out.Trinity.fasta >> Trinity_sub.fasta
     """
 }
 
@@ -164,14 +164,14 @@ process collectTrinityRes {
     publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
     
     input:
-    file("*") from components.collect()
+    file("Trinity_sub") from components.collect()
 
     output:
     file ("Trinity.fasta") into (transcripts, transcripts_for_prediction)
     
     script:
     """
-    cat *.fasta >> Trinity.fasta
+    cat Trinity_sub* >> Trinity.fasta
     ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
     ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """

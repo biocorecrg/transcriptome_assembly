@@ -123,6 +123,7 @@ process fastqcTrim {
 
 process TrinityStep1 {
     label 'big_mem_cpus'
+    publishDir outputQC
     
     input:
     set val(pair1), file(pair1) from trimmed_pair1_for_assembly.groupTuple()
@@ -139,7 +140,7 @@ process TrinityStep1 {
     """
 }
 
-/*
+
 process TrinityStep2 {
     label 'increase_mem'
     tag { partition_file }
@@ -273,7 +274,7 @@ process transcoderPredict {
 
 /*
 * send mail
-
+*/
 workflow.onComplete {
     def subject = 'Transcriptome assembly execution'
     def recipient = "${params.email}"
@@ -291,7 +292,7 @@ workflow.onComplete {
     Error report: ${workflow.errorReport ?: '-'}
     """
 }
-*/
+
 
 
 

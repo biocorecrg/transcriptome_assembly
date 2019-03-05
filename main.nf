@@ -139,8 +139,9 @@ process TrinityStep1 {
     """
 }
 
-
+/*
 process TrinityStep2 {
+    label 'increase_mem'
     tag { partition_file }
     
     input:

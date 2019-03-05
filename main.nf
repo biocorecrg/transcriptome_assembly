@@ -130,7 +130,7 @@ process TrinityStep1 {
     set val(pair2), file(pair2) from trimmed_pair2_for_assembly.groupTuple()
 
     output:
-    file ("trinity_out_dir/read_partitions/*/*/*.trinity.reads.fa") into single_read_partitions
+    file ("trinity_out_dir/read_partitions/*/*") into partitions_groups
     
     script:
     def pair1_list = pair1.join(',')
@@ -143,19 +143,22 @@ process TrinityStep1 {
 
 process TrinityStep2 {
     label 'increase_mem'
-    tag { partition_file }
+    tag { partitions_group }
     
     input:
-    file(partition_file) from single_read_partitions.flatten()
+    file(partitions_group) from partitions_groups.flatten()
 
     output:
-    file ("${partition_file}.out.Trinity.fasta") optional true into components
+    file ("Trinity_sub.fasta") optional true into components
     
     script:
     """
-    Trinity --single ${partition_file} --output ${partition_file}.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec
+    for i in ${partitions_group}/*.fa; do \
+    Trinity --single \$i --output `basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
+    cat *.out >> Trinity_sub.fasta
     """
 }
+
 
 process collectTrinityRes {
     publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
@@ -274,7 +277,7 @@ process transcoderPredict {
 
 /*
 * send mail
-*/
+
 workflow.onComplete {
     def subject = 'Transcriptome assembly execution'
     def recipient = "${params.email}"
@@ -293,6 +296,6 @@ workflow.onComplete {
     """
 }
 
-
+*/
 
 

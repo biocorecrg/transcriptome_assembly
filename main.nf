@@ -154,7 +154,7 @@ process TrinityStep2 {
     script:
     """
     for i in ${partitions_group}/*.fa; do \
-    Trinity --single \$i --output `basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
+    Trinity --single \$i --min_contig_length ${minContigSize} --output `basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
     cat *.out.Trinity.fasta >> Trinity_sub.fasta
     """
 }

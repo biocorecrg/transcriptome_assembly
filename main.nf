@@ -149,8 +149,8 @@ process TrinityStep2 {
     file(partitions_group) from partitions_groups.flatten()
 
     output:
-    file ("Trinity_sub.fasta") optional true into components
-    file ("Trinity_sub.fasta") optional true into components_for_transcoder
+    file ("Trinity_sub.fasta") into components
+    set val("${partitions_group}"), file ("Trinity_sub.fasta") into components_for_transcoder
     
     script:
     """
@@ -184,27 +184,51 @@ process collectTrinityRes {
 /*
 */
 process TransDecoder {
-    publishDir outputAssembly, mode: 'copy', pattern: "longest*"
+    tag { partitions_group }
     
     input:
-    file(components_for_transcoder)
+    set val(partitions_group), file(components) from components_for_transcoder
 
     output:
-    file ("longest_orfs.pep") into (orfs_for_blastp, orfs_for_pfam)
-    file ("${components_for_transcoder}.transdecoder_dir") into transdecoder_dir
+    set file ("longest_orfs.pep"), file ("longest_orfs.cds"), file ("longest_orfs.gff3") into (orfs_for_concatenation)
     
     script:
     """
-	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${components_for_transcoder} -G ${params.geneticode} -S 
-	cp ${components_for_transcoder}.transdecoder_dir/longest* .
+	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${components} -G ${params.geneticode} -S 
+	cp ${components}.transdecoder_dir/longest* .
     """
 }
 
-/*
-process blastP {  
+
+process collectTransDecoderRes {
+    publishDir outputAssembly, mode: 'copy', pattern: "longest*"
+    
+    input:
+    set file("peps"), file("cds"), file("gff3") from orfs_for_concatenation.collect()
+
+    output:
+    set file ("longest_orfs.pep"), file ("longest_orfs.cds"), file ("longest_orfs.gff3") into transcoder_res
+    set file ("longest_orfs.pep") into peps_for_blastp, peps_for_pfam
+    
+    script:
+    """
+    cat peps* >> longest_orfs.pep
+    cat cds* >> longest_orfs.cds
+    cat gff3* >> longest_orfs.gff3
+    """
+}
+
+
+workflow.onComplete {
+    println "Pipeline completed at: $workflow.complete"
+    println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
+}
+
+
+process diamondSearch {  
     tag "$orf_batches"  
     input:
-    file(orf_batches) from orfs_for_blastp.splitFasta( by: params.batchseq, file: true )
+    file(orf_batches) from peps_for_blastp.splitFasta( by: params.batchseq, file: true )
 
     output:
     file ("blastp.outfmt6") into blastout
@@ -212,8 +236,7 @@ process blastP {
     // fixing the --max_target_seqs problem
     script:
     """
-    blastp -query ${orf_batches} -db ${params.blastDB} \
-    -outfmt 6 -evalue 1e-5 -num_threads ${task.cpus} | awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' > blastp.outfmt6
+    diamond blastp --sensitive -d ${params.blastDB} -q ${orf_batches} -p ${task.cpus} | awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' > blastp.outfmt6
     """
 }
 
@@ -280,6 +303,7 @@ process transcoderPredict {
     TransDecoder.Predict --no_refine_starts -G ${params.geneticode} -t ${transcripts_for_prediction} --retain_pfam_hits ${pfamoutall} --retain_blastp_hits ${blastoutall}
     """
 }
+
 
 
 /*

@@ -150,12 +150,16 @@ process TrinityStep2 {
 
     output:
     file ("Trinity_sub.fasta") optional true into components
+    file ("Trinity_sub.fasta") optional true into components_for_transcoder
     
     script:
     """
+    ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)}' | sh;
+    ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)"/"\$(NF)}' | sh;
+    OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-1)"/"\$(NF)"/"}'`;
     for i in ${partitions_group}/*.fa; do \
-    Trinity --single \$i --min_contig_length ${minContigSize} --output `basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
-    cat *.out.Trinity.fasta >> Trinity_sub.fasta
+    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
+    find \$OUTFOLDER -name '*inity.fasta' | ${support_scripts_image_path}/partitioned_trinity_aggregator.pl --token_prefix TRINITY_DN --output_prefix Trinity_sub
     """
 }
 
@@ -177,23 +181,26 @@ process collectTrinityRes {
     """
 }
 
+/*
+*/
 process TransDecoder {
     publishDir outputAssembly, mode: 'copy', pattern: "longest*"
     
     input:
-    file(transcripts)
+    file(components_for_transcoder)
 
     output:
     file ("longest_orfs.pep") into (orfs_for_blastp, orfs_for_pfam)
-    file ("${transcripts}.transdecoder_dir") into transdecoder_dir
+    file ("${components_for_transcoder}.transdecoder_dir") into transdecoder_dir
     
     script:
     """
-	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${transcripts} -G ${params.geneticode} -S 
-	cp ${transcripts}.transdecoder_dir/longest* .
+	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${components_for_transcoder} -G ${params.geneticode} -S 
+	cp ${components_for_transcoder}.transdecoder_dir/longest* .
     """
 }
 
+/*
 process blastP {  
     tag "$orf_batches"  
     input:

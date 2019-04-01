@@ -7,7 +7,7 @@ ARG HMMER_VERSION=3.2.1
 ARG DIAMOND_VERSION=0.9.24
 
 # Installing Diamond
-RUN bash -c 'curl -k -L https://github.com/bbuchfink/diamond/releases/download/v{DIAMOND_VERSION}/diamond-linux64.tar.gz > diamond-linux64.tar.gz'
+RUN bash -c 'curl -k -L https://github.com/bbuchfink/diamond/releases/download/v${DIAMOND_VERSION}/diamond-linux64.tar.gz > diamond-linux64.tar.gz'
 RUN tar -zvxf diamond-linux64.tar.gz; mv diamond /usr/local/bin/
 RUN chmod +x /usr/local/bin/diamond 
 

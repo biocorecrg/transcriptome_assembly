@@ -24,18 +24,13 @@ BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
 pairs                               : ${params.pairs}
 email                               : ${params.email}
 minsize (after filtering)           : ${params.minsize}
-orientation (RF or FR)              : ${params.orientation}
 genetic code                        : ${params.geneticode}
 output (output folder)              : ${params.output}
-blastDB (uniprot or uniRef90)       : ${params.blastDB}
-pfamDB (pfam database path)         : ${params.pfamDB}
 minProtSize (minimum protein sized) : ${params.minProtSize}
-batchseq                            : ${params.batchseq}
 """
 
 if (params.help) exit 1
 if (params.resume) exit 1, "Are you making the classical --resume typo? Be careful!!!! ;)"
-if (params.orientation != "RF" && params.orientation != "FR")  exit 1, "Orientation not allowed. Only FR or RF" 
 
 minContigSize   = (params.minProtSize*3)
 outputfolder    = "${params.output}"
@@ -164,23 +159,6 @@ process TrinityStep2 {
 }
 
 
-process collectTrinityRes {
-    publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
-    
-    input:
-    file("Trinity_sub") from components.collect()
-
-    output:
-    file ("Trinity.fasta") into (transcripts, transcripts_for_prediction)
-    
-    script:
-    """
-    cat Trinity_sub* >> Trinity.fasta
-    ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
-    ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
-    """
-}
-
 /*
 */
 process TransDecoder {
@@ -190,7 +168,9 @@ process TransDecoder {
     set val(partitions_group), file(components) from components_for_transcoder
 
     output:
-    set file ("longest_orfs.pep"), file ("longest_orfs.cds"), file ("longest_orfs.gff3") into (orfs_for_concatenation)
+    file ("longest_orfs.pep") into orfs_for_concatenation
+    file ("longest_orfs.cds") into cdss_for_concatenation
+    file ("longest_orfs.gff3") into gff3_for_concatenation
     
     script:
     """
@@ -199,22 +179,39 @@ process TransDecoder {
     """
 }
 
+process collectTrinityRes {
+    publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
+    
+    input:
+    file("Trinity_sub") from components.collect()
+
+    output:
+    file ("Trinity.fasta*")
+    
+    script:
+    """
+    cat Trinity_sub* >> Trinity.fasta
+    ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
+    ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
+    """
+}
 
 process collectTransDecoderRes {
     publishDir outputAssembly, mode: 'copy', pattern: "longest*"
     
     input:
-    set file("peps"), file("cds"), file("gff3") from orfs_for_concatenation.collect()
+    file("peps_sub") from orfs_for_concatenation.collect()
+    file("cds_sub") from cdss_for_concatenation.collect()
+    file("gff3_sub") from gff3_for_concatenation.collect()
 
     output:
-    set file ("longest_orfs.pep"), file ("longest_orfs.cds"), file ("longest_orfs.gff3") into transcoder_res
-    set file ("longest_orfs.pep") into peps_for_blastp, peps_for_pfam
-    
+    file ("longest_orfs.*")
+
     script:
     """
-    cat peps* >> longest_orfs.pep
-    cat cds* >> longest_orfs.cds
-    cat gff3* >> longest_orfs.gff3
+    cat peps_sub* >> longest_orfs.pep
+    cat cds_sub* >> longest_orfs.cds
+    cat gff3_sub* >> longest_orfs.gff3
     """
 }
 
@@ -222,86 +219,6 @@ process collectTransDecoderRes {
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"
     println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
-}
-
-
-process diamondSearch {  
-    tag "$orf_batches"  
-    input:
-    file(orf_batches) from peps_for_blastp.splitFasta( by: params.batchseq, file: true )
-
-    output:
-    file ("blastp.outfmt6") into blastout
-    
-    // fixing the --max_target_seqs problem
-    script:
-    """
-    diamond blastp --sensitive -d ${params.blastDB} -q ${orf_batches} -p ${task.cpus} | awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' > blastp.outfmt6
-    """
-}
-
-
-process concatenateBlastRes {    
-    publishDir outputAnnotation, mode: 'copy'
-    input:
-    file("blastres*") from blastout.collect()
-
-    output:
-    file ("blastp.all.results") into blastoutall
-
-    script:
-    """
-    cat blastres* >> blastp.all.results
-    """
-}
-
-process pfam_search {  
-    tag "$orf_batches" 
-     
-    input:
-    file(orf_batches) from orfs_for_pfam.splitFasta( by: params.batchseq, file: true )
-
-    output:
-    file ("pfam.domtblout") into pfamout
-    
-    script:
-    """
-    hmmscan --cpu ${task.cpus} --domtblout pfam.domtblout ${params.pfamDB} ${orf_batches}
-    """
-}
-
-process concatenatePfamRes {    
-    publishDir outputAnnotation, mode: 'copy'
-
-    input:
-    file("pfamout*") from pfamout.collect()
-
-    output:
-    file ("pfamout.all.results") into pfamoutall
-
-    script:
-    """
-    cat pfamout* >> pfamout.all.results
-    """
-}
-
-process transcoderPredict {    
-    publishDir outputAnnotation, mode: 'copy'
-    label 'temp'
-
-    input:
-    file(blastoutall)
-    file(pfamoutall)
-    file(transcripts_for_prediction)
-    file(transdecoder_dir)
-
-    output:
-    set file("Trinity.fasta.transdecoder.bed"), file("Trinity.fasta.transdecoder.cds"), file("Trinity.fasta.transdecoder.gff3"), file("Trinity.fasta.transdecoder.pep") into finalRes
-
-    script:
-    """
-    TransDecoder.Predict --no_refine_starts -G ${params.geneticode} -t ${transcripts_for_prediction} --retain_pfam_hits ${pfamoutall} --retain_blastp_hits ${blastoutall}
-    """
 }
 
 

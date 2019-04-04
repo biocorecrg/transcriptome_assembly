@@ -21,7 +21,9 @@ if [ -d "lib" ]; then {
 		curl -k -L https://github.com/biocorecrg/BioNextflow/archive/${bionext_ver}.tar.gz > ${bionext_ver}.tar.gz
 		tar -zvxf ${bionext_ver}.tar.gz
 		mv "BioNextflow-${bionext_ver}/lib" .
-		rm ${bionext_ver}.tar.gz
+		ln -s $PWD/lib annotation
+                ln -s $PWD/lib assembly
+                rm ${bionext_ver}.tar.gz
 		rm -fr BioNextflow-${bionext_ver}
 }
 fi
@@ -32,7 +34,8 @@ if [ -e "conf_tools.txt" ]; then {
                 echo "make_tool_desc_for_multiqc not installed. Installing it..."
                 curl -k -L https://github.com/CRG-CNAG/make_tool_desc_for_multiqc/archive/${tool_desc_ver}.tar.gz >  ${tool_desc_ver}.tar.gz
                 tar -zvxf ${tool_desc_ver}.tar.gz
-		mv make_tool_desc_for_multiqc-${tool_desc_ver}/conf_tools.txt .
+		cp make_tool_desc_for_multiqc-${tool_desc_ver}/conf_tools.txt assembly
+                mv make_tool_desc_for_multiqc-${tool_desc_ver}/conf_tools.txt annotation
                 rm -fr make_tool_desc_for_multiqc-${tool_desc_ver} 
 		rm -f ${tool_desc_ver}.tar.gz
 }

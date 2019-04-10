@@ -13,11 +13,14 @@ it will check the presence of Nextflow in your path, the presence of singularity
 You need either **Singularity** or **Docker** to launch the pipeline.
 
 ## Module Assembly
+
+### Parameters
+
 |parameter name         | value|
 |---------------------------------|------------------------|
 |pairs         | "PATH_to_reads/*_{1,2}.fq.gz"|
-|email         | YOUEMAIL@YOURDOMAIN|
-|minsize|/nfs/software/bi/biocore_tools/nextflow_pipelines/RNAseq_0.1/singularity/test/genome.fa|
+|email         | YOUREMAIL@YOURDOMAIN|
+|minsize|50|
 |genetic code|
 |output (output folder)|output
 |minProtSize (minimum protein sized)|100

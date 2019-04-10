@@ -21,6 +21,6 @@ You need either **Singularity** or **Docker** to launch the pipeline.
 |pairs         | "PATH_to_reads/*_{1,2}.fq.gz"|
 |email         | YOUREMAIL@YOURDOMAIN|
 |minsize|50|
-|genetic code|
-|output (output folder)|output
-|minProtSize (minimum protein sized)|100
+|genetic code|Universal|
+|output (output folder)|output|
+|minProtSize (minimum protein sized)|100|

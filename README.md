@@ -6,3 +6,18 @@ Biocore's de novo transcriptome assembly workflow based on Nextflow
 [![Nextflow version](https://img.shields.io/badge/nextflow-%E2%89%A50.31.0-brightgreen.svg)](https://www.nextflow.io/)
 [![Docker Build Status](https://img.shields.io/docker/automated/biocorecrg/trinity_assembly.svg)](https://cloud.docker.com/u/biocorecrg/repository/docker/biocorecrg/trinity_assembly)
 
+## Installation
+*sh INSTALL.sh* 
+it will check the presence of Nextflow in your path, the presence of singularity and will download the BioNextflow library and information about the tools used. 
+
+You need either **Singularity** or **Docker** to launch the pipeline.
+
+## Module Assembly
+|parameter name         | value|
+|---------------------------------|------------------------|
+|pairs         | "PATH_to_reads/*_{1,2}.fq.gz"|
+|email         | YOUEMAIL@YOURDOMAIN|
+|minsize|/nfs/software/bi/biocore_tools/nextflow_pipelines/RNAseq_0.1/singularity/test/genome.fa|
+|genetic code|
+|output (output folder)|output
+|minProtSize (minimum protein sized)|100

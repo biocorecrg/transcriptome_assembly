@@ -145,6 +145,7 @@ if (params.pfamDB == "") {
 */
 process transcoderPredict {    
     publishDir outputAnnotation, mode: 'copy'
+    label("big_mem")
 
     input:
     file(blastoutall)

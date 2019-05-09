@@ -1,5 +1,5 @@
 N E X T F L O W  ~  version 19.01.0
-Launching `quantify.nf` [desperate_darwin] - revision: db6869018e
+Launching `quantify.nf` [boring_lamarr] - revision: 60bc760505
 
 
 ╔╗ ┬┌─┐┌─┐┌─┐┬─┐┌─┐╔═╗╦═╗╔═╗  ╔╦╗┬─┐┌─┐┌┐┌┌─┐┌─┐┬─┐┬┌─┐┌┬┐┌─┐┌┬┐┌─┐  ╔═╗┌─┐┌─┐┌─┐┌┬┐┌┐ ┬ ┬ ┬
@@ -16,8 +16,9 @@ email                               :
 
 [warm up] executor > crg
 [dd/893d11] Cached process > prepReference
-[aa/f64b3d] Cached process > alignReadsToTranscritps (readA)
 [b7/b3a3e0] Cached process > alignReadsToTranscritps (readB)
-[52/000a50] Submitted process > BuildMatrices
-Pipeline completed at: Mon Apr 15 18:37:28 CEST 2019
+[aa/f64b3d] Cached process > alignReadsToTranscritps (readA)
+[52/000a50] Cached process > BuildMatrices
+[a7/b39aea] Submitted process > evaluateTranscription
+Pipeline completed at: Thu May 09 18:18:12 CEST 2019
 Execution status: OK

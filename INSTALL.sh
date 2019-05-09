@@ -23,6 +23,7 @@ if [ -d "lib" ]; then {
 		mv "BioNextflow-${bionext_ver}/lib" .
 		ln -s $PWD/lib annotation
                 ln -s $PWD/lib assembly
+                ln -s $PWD/lib quantify
                 rm ${bionext_ver}.tar.gz
 		rm -fr BioNextflow-${bionext_ver}
 }

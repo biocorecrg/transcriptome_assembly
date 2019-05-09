@@ -118,7 +118,6 @@ process fastqcTrim {
 
 process TrinityStep1 {
     label 'big_mem_cpus'
-    publishDir outputQC
     
     input:
     set val(pair1), file(pair1) from trimmed_pair1_for_assembly.groupTuple()
@@ -180,6 +179,7 @@ process TransDecoder {
 }
 
 process collectTrinityRes {
+    publishDir outputMultiQC, mode: 'copy', pattern: "Trinity.fasta.stat"
     publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
     
     input:

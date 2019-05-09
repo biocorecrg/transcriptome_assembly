@@ -85,10 +85,9 @@ process alignReadsToTranscritps {
 }
 
 /*
-*  Align the reads
+*  Build the matrix
 */
 process BuildMatrices {
-//    label "big_cpus"
 
     input:
     file(transcripts)
@@ -96,7 +95,7 @@ process BuildMatrices {
     file(estimates) from abund_estimates.collect()
     
     output: 
-    
+    file("salmon.gene.TPM.not_cross_norm") into tpm_matrix_for_evaluation
          
     script:
     def estimates_params = estimates.collect{ "$it/quant.sf" }.join(' ') 
@@ -109,6 +108,23 @@ process BuildMatrices {
             ${estimates_params}
     """
 }
+
+process evaluateTranscription {
+
+    input:
+    file(tpm_matrix_for_evaluation)
+
+    
+    output: 
+    file("${tpm_matrix_for_evaluation}.counts_by_min_TPM") into TPM_counts
+         
+    script:
+    """
+    ${util_scripts_image_path}/misc/count_matrix_features_given_MIN_TPM_threshold.pl \
+		${tpm_matrix_for_evaluation} | tee ${tpm_matrix_for_evaluation}.counts_by_min_TPM
+    """
+}
+
 
 
 workflow.onComplete {

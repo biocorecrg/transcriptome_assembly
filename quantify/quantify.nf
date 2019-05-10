@@ -24,6 +24,7 @@ BIOCORE@CRG Transcriptome Quantification - N F  ~  version ${version}
 pairs                               : ${params.pairs}
 transcripts                         : ${params.transcripts}
 transmap                            : ${params.transmap}
+output                              : ${params.output}
 email                               : ${params.email}
 """
 
@@ -44,12 +45,15 @@ Channel
 
 transcripts = file(params.transcripts)
 transmap = file(params.transmap)
+outputMatrix = ${params.output}/"Expression"
+outputEvaluation = ${params.output}/"Evaluation"
 
 /*
 *  Prepare the reference for alignment and abundance estimation
 */
 process prepReference {
-    
+    label "big_mem_cpus"
+
     input:
     file(transcripts)
     file(transmap)
@@ -68,7 +72,7 @@ process prepReference {
 */
 process alignReadsToTranscritps {
     tag("$pair_id")
-//    label "big_cpus"
+    label "big_cpus"
 
     input:
     file(transcripts)
@@ -88,6 +92,7 @@ process alignReadsToTranscritps {
 *  Build the matrix
 */
 process BuildMatrices {
+    publishDir outputMatrix, mode: 'copy'
 
     input:
     file(transcripts)
@@ -110,18 +115,20 @@ process BuildMatrices {
 }
 
 process evaluateTranscription {
+    publishDir outputEvaluation, mode: 'copy'
 
     input:
     file(tpm_matrix_for_evaluation)
 
-    
     output: 
-    file("${tpm_matrix_for_evaluation}.counts_by_min_TPM") into TPM_counts
+    file("${tpm_matrix_for_evaluation}.counts_by_min_TPM*") 
          
     script:
     """
     ${util_scripts_image_path}/misc/count_matrix_features_given_MIN_TPM_threshold.pl \
 		${tpm_matrix_for_evaluation} | tee ${tpm_matrix_for_evaluation}.counts_by_min_TPM
+	
+	plot_TPM.r  ${tpm_matrix_for_evaluation}.counts_by_min_TPM
     """
 }
 

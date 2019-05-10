@@ -45,14 +45,14 @@ Channel
 
 transcripts = file(params.transcripts)
 transmap = file(params.transmap)
-outputMatrix = ${params.output}/"Expression"
-outputEvaluation = ${params.output}/"Evaluation"
+outputMatrix = "${params.output}/Expression"
+outputEvaluation = "${params.output}/Evaluation"
 
 /*
 *  Prepare the reference for alignment and abundance estimation
 */
 process prepReference {
-    label "big_mem_cpus"
+    label "big_time_cpus"
 
     input:
     file(transcripts)
@@ -63,7 +63,7 @@ process prepReference {
 
     script:
     """
-    ${util_scripts_image_path}/align_and_estimate_abundance.pl --transcripts ${transcripts} --est_method salmon --gene_trans_map ${transmap} --prep_reference
+    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} --est_method salmon --gene_trans_map ${transmap} --prep_reference
     """
 }
 

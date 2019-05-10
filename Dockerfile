@@ -5,6 +5,12 @@ ARG TOOL_MULTIQC_VERSION=1.1
 ARG TRANS_DECODER_VERSION=5.5.0
 ARG HMMER_VERSION=3.2.1
 ARG DIAMOND_VERSION=0.9.24
+ARG SALMON_VERSION=0.13.1
+
+# Installing salmon
+RUN bash -c 'curl -k -L https://github.com/COMBINE-lab/salmon/releases/download/v${SALMON_VERSION}/salmon-${SALMON_VERSION}_linux_x86_64.tar.gz > salmon.tar.gz'
+RUN tar -zvxf salmon.tar.gz
+RUN rm /usr/local/bin/salmon; ln -s $PWD/salmon-latest_linux_x86_64/bin/salmon /usr/local/bin/salmon
 
 # Installing Diamond
 RUN bash -c 'curl -k -L https://github.com/bbuchfink/diamond/releases/download/v${DIAMOND_VERSION}/diamond-linux64.tar.gz > diamond-linux64.tar.gz'

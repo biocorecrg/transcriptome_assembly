@@ -50,6 +50,7 @@ outputEvaluation = "${params.output}/Evaluation"
 
 /*
 *  Prepare the reference for alignment and abundance estimation
+* I modified the script to add  --keepDuplicates option to the indexing 
 */
 process prepReference {
     label "big_time_cpus"
@@ -63,7 +64,7 @@ process prepReference {
 
     script:
     """
-    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} --est_method salmon --gene_trans_map ${transmap} --prep_reference
+    align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} --est_method salmon --gene_trans_map ${transmap} --prep_reference
     """
 }
 

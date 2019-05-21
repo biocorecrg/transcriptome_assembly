@@ -83,7 +83,7 @@ process diamondSearch {
     script:
     """
     diamond blastp --sensitive -d ${params.diamondDB} -q ${pep_batches} -p ${task.cpus} > diamond.out
-    awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' | awk '{if (\$0!="") print}' diamond.out > blastp.outfmt6
+    awk 'BEGIN{print \$0;id=\$1}{if (id!=\$1){print \$0; id=\$1} }' diamond.out | awk '{if (\$0!="") print}' > blastp.outfmt6
     rm diamond.out
     """
 }

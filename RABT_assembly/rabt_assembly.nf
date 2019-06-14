@@ -22,11 +22,13 @@ log.info """
 BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
 ====================================================
 pairs                               : ${params.pairs}
-email                               : ${params.email}
+genome                              : ${params.genome}
+annotation                          : ${params.annotation}
 minsize (after filtering)           : ${params.minsize}
 genetic code                        : ${params.geneticode}
 output (output folder)              : ${params.output}
 minProtSize (minimum protein sized) : ${params.minProtSize}
+email                               : ${params.email}
 """
 
 if (params.help) exit 1
@@ -40,10 +42,16 @@ outputMultiQC   = "${outputfolder}/multiQC"
 outputMapping   = "${outputfolder}/Alignments"
 outputAssembly  = "${outputfolder}/Assembly"
 outputAnnotation= "${outputfolder}/Annotation"
+outputIndex     = "${outputfolder}/Index"
 
 util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
 
+genome_file = file(params.genome)
+annotation_file = file(params.annotation)
+
+if( !genome_file.exists() ) exit 1, "Missing genome file: ${genome_file}"
+if( !annotation_file.exists() ) exit 1, "Missing annotation file: ${annotation_file}"
 
 /*
  * Creates the `read_pairs` channel that emits for each read-pair a tuple containing
@@ -88,9 +96,8 @@ process trimReads {
     set pair_id, file(reads) from (raw_reads_for_trimming )
 
     output:
-    set val("pair1"), file("*-trimmed-pair1.fastq.gz") into trimmed_pair1_for_assembly
-    set val("pair2"), file("*-trimmed-pair2.fastq.gz") into trimmed_pair2_for_assembly
-    file("*trimmed*.fastq.gz") into filtered_read_for_QC
+    set pair_id, file("${pair_id}-trimmed-pair1.fastq.gz"), file("${pair_id}-trimmed-pair2.fastq.gz") into trimmed_pairs_for_mapping
+    file("*-trimmed-pair*.fastq.gz") into filtered_read_for_QC
     file("*trimmed.log") into logTrimming_for_QC
      
     script:
@@ -115,7 +122,38 @@ process fastqcTrim {
     qc.fastqc()
 }
 
+process buildIndex {
+    publishDir outputIndex
+    
+    input:
+    file genome_file
+    file annotation_file
 
+    output:
+    file "STARgenome" into STARgenomeIndex, STARgenomeIndexForCoverage
+
+    script:
+    def aligner = new NGSaligner(reference_file:genome_file, index:"STARgenome", annotation_file:annotation_file, read_size:params.minsize-1, cpus:task.cpus)
+    aligner.doIndexing("STAR")
+}
+/*
+process alignment {
+    label 'big_mem_cpus'
+    
+    input:
+    set pair1_id, file(pair1), file(pair2) from trimmed_pairs_for_mapping
+
+    output:
+
+    
+    script:
+    """
+    Trinity --min_contig_length ${minContigSize} --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
+    """
+}
+
+
+/*
 process TrinityStep1 {
     label 'big_mem_cpus'
     
@@ -124,7 +162,7 @@ process TrinityStep1 {
     set val(pair2), file(pair2) from trimmed_pair2_for_assembly.groupTuple()
 
     output:
-    file ("trinity_out_dir/read_partitions/*/*") into partitions_groups
+
     
     script:
     def pair1_list = pair1.join(',')
@@ -158,8 +196,8 @@ process TrinityStep2 {
 }
 
 
-/*
-*/
+
+
 process TransDecoder {
     tag { partitions_group }
     
@@ -220,7 +258,7 @@ workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"
     println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
 }
-
+*/
 
 
 /*

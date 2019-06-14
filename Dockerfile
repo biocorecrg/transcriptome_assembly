@@ -6,6 +6,7 @@ ARG TRANS_DECODER_VERSION=5.5.0
 ARG HMMER_VERSION=3.2.1
 ARG DIAMOND_VERSION=0.9.24
 ARG SALMON_VERSION=0.13.1
+ARG STAR_VERSION=2.7.1a
 
 # Installing salmon
 RUN bash -c 'curl -k -L https://github.com/COMBINE-lab/salmon/releases/download/v${SALMON_VERSION}/salmon-${SALMON_VERSION}_linux_x86_64.tar.gz > salmon.tar.gz'
@@ -38,6 +39,11 @@ RUN R -e 'chooseCRANmirror(ind=52); install.packages(c("ggplot2"))'
 RUN bash -c 'curl -k -L http://eddylab.org/software/hmmer/hmmer-${HMMER_VERSION}.tar.gz > hmmer.tar.gz'
 RUN tar -zvxf hmmer.tar.gz; cd hmmer-${HMMER_VERSION}; ./configure; make; make install; cd easel; make install; cd ../../
 
+# Installing STAR
+RUN bash -c 'curl -k -L https://github.com/alexdobin/STAR/archive/${STAR_VERSION}.tar.gz > STAR.tar.gz'
+RUN tar -zvxf STAR.tar.gz
+RUN cp STAR-${STAR_VERSION}/bin/Linux_x86_64/* /usr/local/bin/
+RUN rm STAR.tar.gz
 
 #cleaning
 RUN rm -fr *.tar.gz* .tar.bz2

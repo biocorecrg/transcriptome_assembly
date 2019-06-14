@@ -43,6 +43,7 @@ outputMapping   = "${outputfolder}/Alignments"
 outputAssembly  = "${outputfolder}/Assembly"
 outputAnnotation= "${outputfolder}/Annotation"
 outputIndex     = "${outputfolder}/Index"
+outputCounts    = "${outputfolder}/Counts"
 
 util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
@@ -136,21 +137,31 @@ process buildIndex {
     def aligner = new NGSaligner(reference_file:genome_file, index:"STARgenome", annotation_file:annotation_file, read_size:params.minsize-1, cpus:task.cpus)
     aligner.doIndexing("STAR")
 }
+
+
 /*
-process alignment {
-    label 'big_mem_cpus'
-    
-    input:
-    set pair1_id, file(pair1), file(pair2) from trimmed_pairs_for_mapping
+* Mapping with STAR mapper // should we think about a two pass mapping collecting the splicing for every sample???
+*/
+process mapping {
+    tag { pair_id }
+    publishDir outputCounts, pattern: "STAR_${pair_id}/*ReadsPerGene.out.tab",  mode: 'copy'
+    publishDir outputQC, pattern: "STAR_${pair_id}/*Log.final.out", mode: 'copy'
 
-    output:
+        input:
+        file STARgenome from STARgenomeIndex
+        set pair_id, file(reads) from trimmed_pairs_for_mapping
 
-    
-    script:
-    """
-    Trinity --min_contig_length ${minContigSize} --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
-    """
+        output:
+        set pair_id, file("STAR_${pair_id}/${pair_id}Aligned.sortedByCoord.out.bam") into STARmappedBam_for_qualimap, STARmappedBam_for_indexing
+        file("STAR_${pair_id}") into Aln_folders_for_multiqc
+        file("STAR_${pair_id}/${pair_id}ReadsPerGene.out.tab")
+
+        script:
+        def aligner = new NGSaligner(id:pair_id, reads:reads, index:STARgenome, cpus:task.cpus, output:"STAR_${pair_id}") 
+        aligner.doAlignment("STAR")  
+        
 }
+
 
 
 /*

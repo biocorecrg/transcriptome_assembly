@@ -28,6 +28,8 @@ minsize (after filtering)           : ${params.minsize}
 genetic code                        : ${params.geneticode}
 output (output folder)              : ${params.output}
 minProtSize (minimum protein sized) : ${params.minProtSize}
+strandness                          : ${params.strandness}
+maxIntron                           : ${params.maxIntron}
 email                               : ${params.email}
 """
 
@@ -53,6 +55,7 @@ annotation_file = file(params.annotation)
 
 if( !genome_file.exists() ) exit 1, "Missing genome file: ${genome_file}"
 if( !annotation_file.exists() ) exit 1, "Missing annotation file: ${annotation_file}"
+if (params.strandness != "FR" && params.strandness != "RF" && params.strandness != "NO" ) exit 1, "Please specify FR , RF or NO in case the data is in stranded or non stranded"
 
 /*
  * Creates the `read_pairs` channel that emits for each read-pair a tuple containing
@@ -88,6 +91,27 @@ process QConRawReads {
 
  /*
  * Trim reads with skewer (optional). Make empty channels for multiQC
+ 
+process trimReads {
+    publishDir outputTrimmed
+    tag { pair_id }
+
+    input:
+    set pair_id, file(reads) from (raw_reads_for_trimming )
+
+    output:
+    set pair_id, file("${pair_id}-trimmed-pair*.fastq.gz") into trimmed_pairs_for_mapping_first, trimmed_pairs_for_mapping_second
+    file("*-trimmed-pair*.fastq.gz") into filtered_read_for_QC
+    file("*trimmed.log") into logTrimming_for_QC
+     
+    script:
+    def trimmer = new Trimmer(reads:reads, id:pair_id, min_read_size:params.minsize, cpus:task.cpus)
+    trimmer.trimWithSkewer()
+}
+*/
+
+/*
+ * Trim reads with skewer (optional). Make empty channels for multiQC
  */
 process trimReads {
     publishDir outputTrimmed
@@ -97,8 +121,9 @@ process trimReads {
     set pair_id, file(reads) from (raw_reads_for_trimming )
 
     output:
-    set pair_id, file("${pair_id}-trimmed-pair1.fastq.gz"), file("${pair_id}-trimmed-pair2.fastq.gz") into trimmed_pairs_for_mapping
-    file("*-trimmed-pair*.fastq.gz") into filtered_read_for_QC
+    set val("pair1"), file("*-trimmed-pair1.fastq.gz") into trimmed_pair1_for_normalization
+    set val("pair2"), file("*-trimmed-pair2.fastq.gz") into trimmed_pair2_for_normalization
+    file("*trimmed*.fastq.gz") into filtered_read_for_QC
     file("*trimmed.log") into logTrimming_for_QC
      
     script:
@@ -123,8 +148,30 @@ process fastqcTrim {
     qc.fastqc()
 }
 
+/*
+*/
+process TrinityNormalization {
+    label 'big_mem_cpus'
+    
+    input:
+    set val(pair1), file(pair1) from trimmed_pair1_for_normalization.groupTuple()
+    set val(pair2), file(pair2) from trimmed_pair2_for_normalization.groupTuple()
+
+    output:
+    file "trinity_out_dir/insilico_read_normalization/*.norm.fq" into norm_reads_first, norm_reads_second
+
+    script:
+    def pair1_list = pair1.join(',')
+    def pair2_list = pair2.join(',')
+
+    """     
+    Trinity --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_run_inchworm
+    """
+}
+
 process buildIndex {
     publishDir outputIndex
+    label 'big_mem_cpus'
     
     input:
     file genome_file
@@ -140,49 +187,77 @@ process buildIndex {
 
 
 /*
-* Mapping with STAR mapper // should we think about a two pass mapping collecting the splicing for every sample???
+* Mapping with STAR mapper (first pass)
 */
-process mapping {
-    tag { pair_id }
+process firstPassMapping {
+    label 'big_mem_cpus'
+    
+        afterScript 'rm STAR_*/*.bam' 
+
+        input:
+        file STARgenome from STARgenomeIndex
+        file(reads) from norm_reads_first
+
+        output:
+        file "STAR_first/firstSJ.out.tab" into first_pass_junctions
+
+        script:
+        def aligner = new NGSaligner(id:"first", reads:reads, index:STARgenome, cpus:task.cpus, output:"STAR_first") 
+        aligner.doAlignment("STAR")  
+        
+}
+
+/*
+* Mapping with STAR mapper (second pass)
+*/
+
+process secondPassMapping {
+    label 'big_mem_cpus'
     publishDir outputCounts, pattern: "STAR_${pair_id}/*ReadsPerGene.out.tab",  mode: 'copy'
     publishDir outputQC, pattern: "STAR_${pair_id}/*Log.final.out", mode: 'copy'
 
         input:
         file STARgenome from STARgenomeIndex
-        set pair_id, file(reads) from trimmed_pairs_for_mapping
-
+        file(reads) from norm_reads_second
+        file(first_pass_junctions)
+    
         output:
-        set pair_id, file("STAR_${pair_id}/${pair_id}Aligned.sortedByCoord.out.bam") into STARmappedBam_for_qualimap, STARmappedBam_for_indexing
-        file("STAR_${pair_id}") into Aln_folders_for_multiqc
-        file("STAR_${pair_id}/${pair_id}ReadsPerGene.out.tab")
+        file "STAR_norm/normAligned.sortedByCoord.out.bam" into STARmappedBam_for_qualimap, STARmappedBam_for_assembly
+        file "STAR_norm"  into Aln_folders_for_multiqc
+        file "STAR_norm/normReadsPerGene.out.tab" 
 
         script:
-        def aligner = new NGSaligner(id:pair_id, reads:reads, index:STARgenome, cpus:task.cpus, output:"STAR_${pair_id}") 
+        def aligner = new NGSaligner(id:"norm", reads:reads, index:STARgenome, cpus:task.cpus, output:"STAR_norm", extrapars:"--sjdbFileChrStartEnd ${first_pass_junctions}") 
         aligner.doAlignment("STAR")  
         
 }
 
 
-
-/*
-process TrinityStep1 {
+process TrinityAssemblyStep1 {
     label 'big_mem_cpus'
     
     input:
-    set val(pair1), file(pair1) from trimmed_pair1_for_assembly.groupTuple()
-    set val(pair2), file(pair2) from trimmed_pair2_for_assembly.groupTuple()
+    file(STARmappedBam_for_assembly)
 
     output:
-
+    file ("trinity_out_dir/read_partitions/*/*") into partitions_groups
     
     script:
-    def pair1_list = pair1.join(',')
-    def pair2_list = pair2.join(',')
+    def strand = ""
+    if (params.strandness != "NO") {
+    	strand = "--SS_lib_type ${params.strandness}"
+    }    
     """
-    Trinity --min_contig_length ${minContigSize} --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
+    Trinity --genome_guided_bam ${STARmappedBam_for_assembly} \
+         --genome_guided_max_intron ${params.maxIntron} ${strand} \
+         --min_contig_length ${minContigSize} \
+         --max_memory ${task.memory.giga}G --CPU  ${task.cpus} --no_distributed_trinity_exec
     """
 }
 
+/*
+
+    
 
 process TrinityStep2 {
     label 'increase_mem'

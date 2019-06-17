@@ -25,6 +25,7 @@ pairs                               : ${params.pairs}
 email                               : ${params.email}
 minsize (after filtering)           : ${params.minsize}
 genetic code                        : ${params.geneticode}
+strandness                          : ${params.strandness}
 output (output folder)              : ${params.output}
 minProtSize (minimum protein sized) : ${params.minProtSize}
 """
@@ -57,6 +58,8 @@ Channel
 Channel
     .fromPath( params.pairs )
     .set{ reads_for_fastqc }                                           
+
+if (params.strandness != "FR" && params.strandness != "RF" && params.strandness != "NO" ) exit 1, "Please specify FR , RF or NO in case the data is in stranded or non stranded"
 
 
 /*
@@ -129,8 +132,14 @@ process TrinityStep1 {
     script:
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
+    if (${params.strandness} != "NO") {
+    	strand = "--SS_lib_type ${params.strandness}"
+    }
+    
     """
-    Trinity --min_contig_length ${minContigSize} --seqType fq --max_memory ${task.memory.giga}G --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
+    Trinity --min_contig_length ${minContigSize} ${strand} \
+    --seqType fq --max_memory ${task.memory.giga}G \
+    --left ${pair1_list} --right ${pair2_list} --CPU ${task.cpus} --no_distributed_trinity_exec
     """
 }
 

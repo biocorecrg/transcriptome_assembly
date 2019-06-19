@@ -19,7 +19,7 @@ log.info """
 ╚═╝┴└─┘└─┘└─┘┴└─└─┘╚═╝╩╚═╚═╝   ╩ ┴└─┴ ┴┘└┘└─┘└─┘┴└─┴┴   ┴ └─┘┴ ┴└─┘  ╩ ╩└─┘└─┘└─┘┴ ┴└─┘┴─┘┴ 
                                                                                        
 ====================================================
-BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
+BIOCORE@CRG RABT Transcriptome Assembly - N F  ~  version ${version}
 ====================================================
 pairs                               : ${params.pairs}
 genome                              : ${params.genome}
@@ -88,27 +88,6 @@ process QConRawReads {
     def qc = new QualityChecker(input:read, cpus:task.cpus)
     qc.fastqc()
 }
-
- /*
- * Trim reads with skewer (optional). Make empty channels for multiQC
- 
-process trimReads {
-    publishDir outputTrimmed
-    tag { pair_id }
-
-    input:
-    set pair_id, file(reads) from (raw_reads_for_trimming )
-
-    output:
-    set pair_id, file("${pair_id}-trimmed-pair*.fastq.gz") into trimmed_pairs_for_mapping_first, trimmed_pairs_for_mapping_second
-    file("*-trimmed-pair*.fastq.gz") into filtered_read_for_QC
-    file("*trimmed.log") into logTrimming_for_QC
-     
-    script:
-    def trimmer = new Trimmer(reads:reads, id:pair_id, min_read_size:params.minsize, cpus:task.cpus)
-    trimmer.trimWithSkewer()
-}
-*/
 
 /*
  * Trim reads with skewer (optional). Make empty channels for multiQC
@@ -213,8 +192,8 @@ process firstPassMapping {
 
 process secondPassMapping {
     label 'big_mem_cpus'
-    publishDir outputCounts, pattern: "STAR_${pair_id}/*ReadsPerGene.out.tab",  mode: 'copy'
-    publishDir outputQC, pattern: "STAR_${pair_id}/*Log.final.out", mode: 'copy'
+    publishDir outputCounts, pattern: "STAR_norm/*ReadsPerGene.out.tab",  mode: 'copy'
+    publishDir outputQC, pattern: "STAR_norm/*Log.final.out", mode: 'copy'
 
         input:
         file STARgenome from STARgenomeIndex
@@ -234,13 +213,13 @@ process secondPassMapping {
 
 
 process TrinityAssemblyStep1 {
-    label 'big_mem_cpus'
+    label 'big_time_cpus'
     
     input:
     file(STARmappedBam_for_assembly)
 
     output:
-    file ("trinity_out_dir/read_partitions/*/*") into partitions_groups
+    file ("trinity_out_dir/*/*/*") into partitions_groups
     
     script:
     def strand = ""
@@ -251,12 +230,10 @@ process TrinityAssemblyStep1 {
     Trinity --genome_guided_bam ${STARmappedBam_for_assembly} \
          --genome_guided_max_intron ${params.maxIntron} ${strand} \
          --min_contig_length ${minContigSize} \
-         --max_memory ${task.memory.giga}G --CPU  ${task.cpus} --no_distributed_trinity_exec
+         --no_distributed_trinity_exec \
+         --max_memory ${task.memory.giga}G --CPU  ${task.cpus} 
     """
 }
-
-/*
-
     
 
 process TrinityStep2 {
@@ -267,22 +244,22 @@ process TrinityStep2 {
     file(partitions_group) from partitions_groups.flatten()
 
     output:
-    file ("Trinity_sub.fasta") into components
-    set val("${partitions_group}"), file ("Trinity_sub.fasta") into components_for_transcoder
-    
+    file ("Trinity-GG.fasta_sub.tmp") optional true into components
+    set val("${partitions_group}"), file ("Trinity-GG.fasta_sub.tmp") optional true into components_for_transcoder
+
     script:
     """
-    ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)}' | sh;
-    ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)"/"\$(NF)}' | sh;
-    OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-1)"/"\$(NF)"/"}'`;
-    for i in ${partitions_group}/*.fa; do \
-    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
-    find \$OUTFOLDER -name '*inity.fasta' | ${support_scripts_image_path}/partitioned_trinity_aggregator.pl --token_prefix TRINITY_DN --output_prefix Trinity_sub
+    OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
+    mkdir -p \$OUTFOLDER
+    for i in ${partitions_group}/*.trinity.reads; do \
+    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --SS_lib_type F --no_distributed_trinity_exec; done;
+    if [ `find Dir_*  -name '*inity.fasta'` ]; 
+        then find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_sub.tmp;
+    fi
     """
 }
 
-
-
+/*
 
 process TransDecoder {
     tag { partitions_group }

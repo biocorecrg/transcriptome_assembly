@@ -19,7 +19,7 @@ log.info """
 ╚═╝┴└─┘└─┘└─┘┴└─└─┘╚═╝╩╚═╚═╝   ╩ ┴└─┴ ┴┘└┘└─┘└─┘┴└─┴┴   ┴ └─┘┴ ┴└─┘  ╩ ╩└─┘└─┘└─┘┴ ┴└─┘┴─┘┴ 
                                                                                        
 ====================================================
-BIOCORE@CRG Transcriptome Assembly - N F  ~  version ${version}
+BIOCORE@CRG De Novo Transcriptome Assembly - N F  ~  version ${version}
 ====================================================
 pairs                               : ${params.pairs}
 email                               : ${params.email}
@@ -132,6 +132,7 @@ process TrinityStep1 {
     script:
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
+    def strand = ""
     if (${params.strandness} != "NO") {
     	strand = "--SS_lib_type ${params.strandness}"
     }

@@ -133,7 +133,7 @@ process TrinityStep1 {
     def pair1_list = pair1.join(',')
     def pair2_list = pair2.join(',')
     def strand = ""
-    if (${params.strandness} != "NO") {
+    if (params.strandness != "NO") {
     	strand = "--SS_lib_type ${params.strandness}"
     }
     

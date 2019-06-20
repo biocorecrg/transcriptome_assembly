@@ -211,7 +211,9 @@ process secondPassMapping {
         
 }
 
-
+/*
+* Trinity assembly step one
+*/
 process TrinityAssemblyStep1 {
     label 'big_time_cpus'
     
@@ -234,11 +236,13 @@ process TrinityAssemblyStep1 {
          --max_memory ${task.memory.giga}G --CPU  ${task.cpus} 
     """
 }
-    
 
+/*
+* Trinity assembly step two
+*/
 process TrinityStep2 {
     label 'increase_mem'
-    tag { partitions_group }
+    tag { fullpath  }
     
     input:
     file(partitions_group) from partitions_groups.flatten()
@@ -248,18 +252,43 @@ process TrinityStep2 {
     set val("${partitions_group}"), file ("Trinity-GG.fasta_sub.tmp") optional true into components_for_transcoder
 
     script:
+    fullpath = partitions_group.target
+    
     """
-    OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
-    mkdir -p \$OUTFOLDER
-    for i in ${partitions_group}/*.trinity.reads; do \
-    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --SS_lib_type F --no_distributed_trinity_exec; done;
-    if [ `find Dir_*  -name '*inity.fasta'` ]; 
-        then find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_sub.tmp;
+    if [ `find ${partitions_group}/  -name '*.trinity.reads'` ]; 
+    then
+        OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
+        mkdir -p \$OUTFOLDER;
+        for i in ${partitions_group}/*.trinity.reads; do \
+        Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --SS_lib_type F --no_distributed_trinity_exec; done;
+        if [ `find Dir_*  -name '*inity.fasta'` ]; 
+        then 
+           find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_sub.tmp;
+        fi
     fi
     """
 }
 
 /*
+* collect trinity results
+*/
+process collectTrinityRes {
+    publishDir outputMultiQC, mode: 'copy', pattern: "Trinity.fasta.stat"
+    publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
+    
+    input:
+    file("Trinity_sub") from components.collect()
+
+    output:
+    file ("Trinity.fasta*")
+    
+    script:
+    """
+    cat Trinity_sub* >> Trinity.fasta
+    ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
+    ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
+    """
+}
 
 process TransDecoder {
     tag { partitions_group }
@@ -276,24 +305,6 @@ process TransDecoder {
     """
 	TransDecoder.LongOrfs -m ${params.minProtSize} -t ${components} -G ${params.geneticode} -S 
 	cp ${components}.transdecoder_dir/longest* .
-    """
-}
-
-process collectTrinityRes {
-    publishDir outputMultiQC, mode: 'copy', pattern: "Trinity.fasta.stat"
-    publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
-    
-    input:
-    file("Trinity_sub") from components.collect()
-
-    output:
-    file ("Trinity.fasta*")
-    
-    script:
-    """
-    cat Trinity_sub* >> Trinity.fasta
-    ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
-    ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """
 }
 
@@ -316,12 +327,12 @@ process collectTransDecoderRes {
     """
 }
 
-
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"
     println "Execution status: ${ workflow.success ? 'OK' : 'failed' }"
 }
-*/
+
+
 
 
 /*

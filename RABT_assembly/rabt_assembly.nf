@@ -242,7 +242,7 @@ process TrinityAssemblyStep1 {
 */
 process TrinityStep2 {
     label 'increase_mem'
-    tag { "${partitions_group.target" }
+    tag { partitions_group.target }
     
     input:
     file(partitions_group) from partitions_groups.flatten()
@@ -253,7 +253,7 @@ process TrinityStep2 {
 
     script:
     """
-    if [ $(ls ${partitions_group}/*.trinity.reads | wc -l) -gt 0 ];
+    if [ \$(ls ${partitions_group}/*.trinity.reads | wc -l) -gt 0 ];
     then
         OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
         mkdir -p \$OUTFOLDER;
@@ -289,7 +289,7 @@ process collectTrinityRes {
 }
 
 process TransDecoder {
-    tag { "${partitions_group.target"  }
+    tag { partitions_group.target }
     
     input:
     set val(partitions_group), file(components) from components_for_transcoder

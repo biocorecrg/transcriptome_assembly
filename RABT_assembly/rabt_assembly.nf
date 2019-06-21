@@ -289,7 +289,7 @@ process collectTrinityRes {
 }
 
 process TransDecoder {
-    tag { partitions_group.target }
+    tag { components.target }
     
     input:
     set val(partitions_group), file(components) from components_for_transcoder

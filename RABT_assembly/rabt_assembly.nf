@@ -242,7 +242,7 @@ process TrinityAssemblyStep1 {
 */
 process TrinityStep2 {
     label 'increase_mem'
-    tag { fullpath  }
+    tag { "${partitions_group.target"  }
     
     input:
     file(partitions_group) from partitions_groups.flatten()
@@ -252,10 +252,8 @@ process TrinityStep2 {
     set val("${partitions_group}"), file ("Trinity-GG.fasta_sub.tmp") optional true into components_for_transcoder
 
     script:
-    fullpath = partitions_group.target
-    
     """
-    if [ `find ${partitions_group}/  -name '*.trinity.reads'` ]; 
+    if [ $(ls ${partitions_group}/*.trinity.reads | wc -l) -gt 0 ];
     then
         OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
         mkdir -p \$OUTFOLDER;
@@ -291,7 +289,7 @@ process collectTrinityRes {
 }
 
 process TransDecoder {
-    tag { partitions_group }
+    tag { "${partitions_group.target"  }
     
     input:
     set val(partitions_group), file(components) from components_for_transcoder

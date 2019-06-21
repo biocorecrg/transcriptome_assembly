@@ -242,7 +242,7 @@ process TrinityAssemblyStep1 {
 */
 process TrinityStep2 {
     label 'increase_mem'
-    tag { "${partitions_group.target"  }
+    tag { "${partitions_group.target" }
     
     input:
     file(partitions_group) from partitions_groups.flatten()

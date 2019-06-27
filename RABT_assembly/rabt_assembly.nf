@@ -248,20 +248,21 @@ process TrinityStep2 {
     file(partitions_group) from partitions_groups.flatten()
 
     output:
-    file ("Trinity-GG.fasta_sub.tmp") optional true into components
-    set val("${partitions_group}"), file ("Trinity-GG.fasta_sub.tmp") optional true into components_for_transcoder
+    file ("Trinity-GG.fasta_*.tmp") optional true into components
+    set val("${partitions_group}"), file ("Trinity-GG.fasta_*.tmp") optional true into components_for_transcoder
 
     script:
     """
     if [ \$(ls ${partitions_group}/*.trinity.reads | wc -l) -gt 0 ];
     then
+        OUTNAME=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-1)"_"\$(NF)}'`;
         OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
         mkdir -p \$OUTFOLDER;
         for i in ${partitions_group}/*.trinity.reads; do \
         Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --SS_lib_type F --no_distributed_trinity_exec; done;
         if [ `find Dir_*  -name '*inity.fasta'` ]; 
         then 
-           find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_sub.tmp;
+           find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_\${OUTNAME}.tmp;
         fi
     fi
     """
@@ -289,7 +290,7 @@ process collectTrinityRes {
 }
 
 process TransDecoder {
-    tag { components.target }
+    tag { components }
     
     input:
     set val(partitions_group), file(components) from components_for_transcoder

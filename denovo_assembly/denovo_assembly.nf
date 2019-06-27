@@ -158,15 +158,15 @@ process TrinityStep2 {
     
     script:
     def strand = ""
-    if (params.strandness != "NO") {
-    	strand = "--SS_lib_type ${params.strandness}"
+    if (params.strandness != "FR") {
+    	strand = "--SS_lib_type F"
     }    
     """
     ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)}' | sh;
     ls ${partitions_group} -l | awk -F'/' '{print "mkdir " \$(NF-1)"/"\$(NF)}' | sh;
     OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-1)"/"\$(NF)"/"}'`;
     for i in ${partitions_group}/*.fa; do \
-    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER`basename \$i`.out \$strand --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
+    Trinity --single \$i --min_contig_length ${minContigSize} --output \$OUTFOLDER`basename \$i`.out ${strand} --CPU 1 --max_memory ${task.memory.giga}G --run_as_paired --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
     find \$OUTFOLDER -name '*inity.fasta' | ${support_scripts_image_path}/partitioned_trinity_aggregator.pl --token_prefix TRINITY_DN --output_prefix Trinity_sub
     """
 }

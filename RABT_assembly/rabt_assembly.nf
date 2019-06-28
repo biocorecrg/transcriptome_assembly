@@ -253,7 +253,6 @@ process TrinityStep2 {
     //set val("${partitions_group}"), file ("Trinity-GG.fasta_*.tmp") optional true into components_for_transcoder
 
     script:
-    script:
     def strand = ""
     if (params.strandness != "FR") {
     	strand = "--SS_lib_type F"

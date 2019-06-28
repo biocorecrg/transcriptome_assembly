@@ -248,8 +248,9 @@ process TrinityStep2 {
     file(partitions_group) from partitions_groups.flatten()
 
     output:
-    file ("Trinity-GG.fasta_*.tmp") optional true into components
-    set val("${partitions_group}"), file ("Trinity-GG.fasta_*.tmp") optional true into components_for_transcoder
+    file ("*inity.fasta") optional true into out_trinity
+    //file ("Trinity-GG.fasta_*.tmp") optional true into components
+    //set val("${partitions_group}"), file ("Trinity-GG.fasta_*.tmp") optional true into components_for_transcoder
 
     script:
     script:
@@ -267,7 +268,7 @@ process TrinityStep2 {
         Trinity --single \$i --min_contig_length ${minContigSize} ${strand} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
         if [ `find Dir_*  -name '*inity.fasta'` ]; 
         then 
-           find Dir_*  -name '*inity.fasta'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity-GG.fasta_\${OUTNAME}.tmp;
+           ln -s Dir_*/*/*/*inity.fasta . 
         fi
     fi
     """
@@ -281,19 +282,20 @@ process collectTrinityRes {
     publishDir outputAssembly, mode: 'copy', pattern: "Trinity.fasta*"
     
     input:
-    file("Trinity_sub") from components.collect()
+    file("Trinity_sub") from out_trinity.collect()
 
     output:
     file ("Trinity.fasta*")
     
     script:
     """
-    cat Trinity_sub* >> Trinity.fasta
+    find * -name 'Trinity_sub*'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity.fasta;
     ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
     ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """
 }
 
+/*
 process TransDecoder {
     tag { components }
     
@@ -330,6 +332,7 @@ process collectTransDecoderRes {
     cat gff3_sub* >> longest_orfs.gff3
     """
 }
+*/
 
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"

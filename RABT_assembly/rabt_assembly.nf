@@ -25,6 +25,7 @@ pairs                               : ${params.pairs}
 genome                              : ${params.genome}
 annotation                          : ${params.annotation}
 minsize (after filtering)           : ${params.minsize}
+splitsize (for transdecoder)        : ${params.splitsize}
 genetic code                        : ${params.geneticode}
 output (output folder)              : ${params.output}
 minProtSize (minimum protein sized) : ${params.minProtSize}
@@ -249,8 +250,6 @@ process TrinityStep2 {
 
     output:
     file ("*inity.fasta") optional true into out_trinity
-    //file ("Trinity-GG.fasta_*.tmp") optional true into components
-    //set val("${partitions_group}"), file ("Trinity-GG.fasta_*.tmp") optional true into components_for_transcoder
 
     script:
     def strand = ""
@@ -260,15 +259,8 @@ process TrinityStep2 {
     """
     if [ \$(ls ${partitions_group}/*.trinity.reads | wc -l) -gt 0 ];
     then
-        OUTNAME=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-1)"_"\$(NF)}'`;
-        OUTFOLDER=`ls ${partitions_group} -l | awk -F"/" '{print \$(NF-2)"/"\$(NF-1)"/"\$(NF)"/"}'`;
-        mkdir -p \$OUTFOLDER;
         for i in ${partitions_group}/*.trinity.reads; do \
-        Trinity --single \$i --min_contig_length ${minContigSize} ${strand} --output \$OUTFOLDER/`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
-        if [ `find Dir_*  -name '*inity.fasta'` ]; 
-        then 
-           ln -s Dir_*/*/*/*inity.fasta . 
-        fi
+        Trinity --single \$i --min_contig_length ${minContigSize} ${strand} --output ./`basename \$i`.out --CPU 1 --max_memory ${task.memory.giga}G  --seqType fa --trinity_complete --full_cleanup --no_distributed_trinity_exec; done;
     fi
     """
 }
@@ -284,22 +276,44 @@ process collectTrinityRes {
     file("Trinity_sub") from out_trinity.collect()
 
     output:
-    file ("Trinity.fasta*")
+    file ("Trinity.fasta") into fasta_to_split
     
     script:
     """
-    find * -name 'Trinity_sub*'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY_GG > Trinity.fasta;
+    find * -name 'Trinity_sub*'  | ${support_scripts_image_path}/GG_partitioned_trinity_aggregator.pl TRINITY > Trinity.fasta;
     ${support_scripts_image_path}/get_Trinity_gene_to_trans_map.pl Trinity.fasta >  Trinity.fasta.gene_trans_map
     ${util_scripts_image_path}/TrinityStats.pl Trinity.fasta > Trinity.fasta.stat
     """
 }
 
 /*
+*/
+
+process splitTrinityFasta {
+    tag { fasta_to_split }
+    
+    input:
+    file(fasta_to_split)
+
+    output:
+    file ("pieces_*.fa") into components_for_transcoder
+    
+    script:
+    """
+    splitTrinityFasta.sh ${params.splitsize}
+    """
+
+
+}
+
+/*
+*/
+
 process TransDecoder {
     tag { components }
     
     input:
-    set val(partitions_group), file(components) from components_for_transcoder
+    file(components) from components_for_transcoder.flatten()
 
     output:
     file ("longest_orfs.pep") into orfs_for_concatenation
@@ -313,6 +327,8 @@ process TransDecoder {
     """
 }
 
+/*
+*/
 process collectTransDecoderRes {
     publishDir outputAssembly, mode: 'copy', pattern: "longest*"
     
@@ -331,7 +347,7 @@ process collectTransDecoderRes {
     cat gff3_sub* >> longest_orfs.gff3
     """
 }
-*/
+
 
 workflow.onComplete {
     println "Pipeline completed at: $workflow.complete"

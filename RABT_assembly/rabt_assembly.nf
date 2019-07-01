@@ -277,6 +277,7 @@ process collectTrinityRes {
 
     output:
     file ("Trinity.fasta") into fasta_to_split
+    file ("Trinity.fasta*") 
     
     script:
     """

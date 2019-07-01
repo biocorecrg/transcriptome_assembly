@@ -155,7 +155,7 @@ process fastqcTrim {
 }
 
 process TrinityStep1 {
-    label 'big_mem_cpus'
+    label 'big_time_cpus'
        
     input:
     val(string) from sample_row_se.mix(sample_row_pe).collect()

@@ -26,6 +26,7 @@ transcripts                         : ${params.transcripts}
 transmap                            : ${params.transmap}
 output                              : ${params.output}
 single (YES or NO)                  : ${params.single}
+strandness                          : ${params.strandness}
 email                               : ${params.email}
 """
 
@@ -37,12 +38,14 @@ support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
 
 if (params.single == "NO") {
    println("Reads are paired ends")
+   if (params.strandness != "FR" && params.strandness != "RF" && params.strandness != "NO" ) exit 1, "Please specify FR , RF or NO in case the data is in stranded or non stranded"
 } else if (params.single == "YES") {
-   println("Reads are single ends")
+ if (params.strandness != "F" && params.strandness != "R" && params.strandness != "NO" ) exit 1, "Please specify F , R or NO in case the data is in stranded or non stranded"
 } 
 else {
    exit 1, "Please specify YES or NO for single or paired ends"
 }
+
 
 /*
  * Creates the `read_pairs` channel that emits for each read-pair a tuple containing
@@ -100,8 +103,11 @@ process alignReadsToTranscritps {
 	} else {
 		read_params= " --left ${pairs[0]} --right ${pairs[1]} "
 	}
+    if (params.strandness != "NO") {
+    	strand = "--SS_lib_type ${params.strandness}"
+    }
     """
-    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} ${read_params} --seqType fq --est_method salmon --trinity_mode --output_dir ${pair_id}
+    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} ${strand} --transcripts ${transcripts} ${read_params} --seqType fq --est_method salmon --trinity_mode --output_dir ${pair_id}
     """
 }
 

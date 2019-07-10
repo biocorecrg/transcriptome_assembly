@@ -25,6 +25,7 @@ pairs                               : ${params.pairs}
 transcripts                         : ${params.transcripts}
 transmap                            : ${params.transmap}
 output                              : ${params.output}
+single (YES or NO)                  : ${params.single}
 email                               : ${params.email}
 """
 
@@ -34,12 +35,21 @@ if (params.resume) exit 1, "Are you making the classical --resume typo? Be caref
 util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
 
+if (params.single == "NO") {
+   println("Reads are paired ends")
+} else if (params.single == "YES") {
+   println("Reads are single ends")
+} 
+else {
+   exit 1, "Please specify YES or NO for single or paired ends"
+}
+
 /*
  * Creates the `read_pairs` channel that emits for each read-pair a tuple containing
  * three elements: the pair ID, the first read-pair file and the second read-pair file
  */
 Channel
-    .fromFilePairs( params.pairs )                                             
+    .fromFilePairs( params.pairs , size: (params.single != "NO") ? 1 : 2)
     .ifEmpty { error "Cannot find any reads matching: ${params.pairs}" }  
     .set { read_pairs }
 
@@ -84,8 +94,14 @@ process alignReadsToTranscritps {
     file("${pair_id}") into abund_estimates
          
     script:
+    def read_params = ""
+    if (params.single == "YES") {
+	    read_params=" --single ${pairs} "
+	} else {
+		read_params= " --left ${pairs[0]} --right ${pairs[1]} "
+	}
     """
-    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} --seqType fq --left ${pairs[0]} --right ${pairs[1]} --est_method salmon --trinity_mode --output_dir ${pair_id}
+    ${util_scripts_image_path}/align_and_estimate_abundance.pl --thread_count ${task.cpus} --transcripts ${transcripts} ${read_params} --seqType fq --est_method salmon --trinity_mode --output_dir ${pair_id}
     """
 }
 

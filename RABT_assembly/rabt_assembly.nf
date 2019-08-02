@@ -52,10 +52,17 @@ util_scripts_image_path = "/usr/local/bin/trinityrnaseq/util/"
 support_scripts_image_path = "${util_scripts_image_path}/support_scripts"
 
 genome_file = file(params.genome)
-annotation_file = file(params.annotation)
 
 if( !genome_file.exists() ) exit 1, "Missing genome file: ${genome_file}"
-if( !annotation_file.exists() ) exit 1, "Missing annotation file: ${annotation_file}"
+if( params.annotation != "") {
+	annotation_file = file(params.annotation)
+	if( !annotation_file.exists() ) exit 1, "Missing annotation file: ${annotation_file}"
+} else {
+	annotation_file = ""
+   log.info """
+   Executing alignment with NO annotation!!
+   """
+}
 if (params.strandness != "FR" && params.strandness != "RF" && params.strandness != "NO" ) exit 1, "Please specify FR , RF or NO in case the data is in stranded or non stranded"
 
 /*
@@ -131,7 +138,7 @@ process fastqcTrim {
 /*
 */
 process TrinityNormalization {
-    label 'big_mem_cpus'
+    label 'big_time_cpus'
     
     input:
     set val(pair1), file(pair1) from trimmed_pair1_for_normalization.groupTuple()
@@ -151,17 +158,16 @@ process TrinityNormalization {
 
 process buildIndex {
     publishDir outputIndex
-    label 'big_mem_cpus'
+    label 'big_time_cpus'
     
     input:
     file genome_file
-    file annotation_file
 
     output:
     file "STARgenome" into STARgenomeIndex, STARgenomeIndexForCoverage
 
     script:
-    def aligner = new NGSaligner(reference_file:genome_file, index:"STARgenome", annotation_file:annotation_file, read_size:params.minsize-1, cpus:task.cpus)
+    aligner = new NGSaligner(reference_file:genome_file, index:"STARgenome", annotation_file:annotation_file, read_size:params.minsize-1, cpus:task.cpus)
     aligner.doIndexing("STAR")
 }
 
@@ -216,7 +222,7 @@ process secondPassMapping {
 * Trinity assembly step one
 */
 process TrinityAssemblyStep1 {
-    label 'big_time_cpus'
+    label 'assembly'
     
     input:
     file(STARmappedBam_for_assembly)

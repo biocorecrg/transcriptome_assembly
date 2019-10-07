@@ -1,4 +1,4 @@
-# ![transcriptome_assembly](https://github.com/CRG-CNAG/BioCoreMiscOpen/blob/master/logo/biocore-logo_small.png) De Novo Transcriptome 
+# ![transcriptome_assembly](https://github.com/CRG-CNAG/BioCoreMiscOpen/blob/master/logo/biocore-logo_small.png) De Novo Transcriptome Assembly
 Biocore's de novo transcriptome assembly workflow based on Nextflow
 
 [![DOI](https://zenodo.org/badge/171497634.svg)](https://zenodo.org/badge/latestdoi/171497634)

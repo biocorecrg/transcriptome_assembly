@@ -156,16 +156,16 @@ process transcoderPredict {
     file(cdss_for_prediction)
 
     output:
-    set file("Trinity.fasta.transdecoder.bed"), file("Trinity.fasta.transdecoder.cds"), file("Trinity.fasta.transdecoder.gff3"), file("Trinity.fasta.transdecoder.pep") into finalRes
+    set file("*.transdecoder.bed"), file("*.transdecoder.cds"), file("*.transdecoder.gff3"), file("*.transdecoder.pep") into finalRes
 
     script:
     def filter = pfam.name != 'EMPTY_FILE' ? "--retain_pfam_hits ${pfam}" : ''
 
     """
-    mkdir Trinity.fasta.transdecoder_dir
-    ln -s \$PWD/`basename ${gff3_for_prediction}` Trinity.fasta.transdecoder_dir/
-    ln -s \$PWD/`basename ${cdss_for_prediction}` Trinity.fasta.transdecoder_dir/
-    ln -s \$PWD/`basename ${peptides_for_prediction}` Trinity.fasta.transdecoder_dir/
+    mkdir ${transcripts_for_prediction}.transdecoder_dir
+    ln -s \$PWD/`basename ${gff3_for_prediction}` ${transcripts_for_prediction}.transdecoder_dir/
+    ln -s \$PWD/`basename ${cdss_for_prediction}` ${transcripts_for_prediction}.transdecoder_dir/
+    ln -s \$PWD/`basename ${peptides_for_prediction}` ${transcripts_for_prediction}.transdecoder_dir/
     ${util_scripts_image_path}/compute_base_probs.pl ${transcripts_for_prediction} 1 > Trinity.fasta.transdecoder_dir/base_freqs.dat;
     TransDecoder.Predict --no_refine_starts -G ${params.geneticode} -t ${transcripts_for_prediction} ${filter} --retain_blastp_hits ${blastoutall}
     """

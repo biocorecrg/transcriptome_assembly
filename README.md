@@ -13,6 +13,9 @@ it will check the presence of Nextflow in your path, the presence of singularity
 
 You need either **Singularity** or **Docker** to launch the pipeline.
 
+## Nextflow version
+NXF_VER=0.29.0 nextflow run
+
 ## Module denovo_assembly
 
 This module allows to perform de novo assembly and to retrieve both predicted transcripts and proteins.

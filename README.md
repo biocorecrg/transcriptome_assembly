@@ -14,7 +14,27 @@ it will check the presence of Nextflow in your path, the presence of singularity
 You need either **Singularity** or **Docker** to launch the pipeline.
 
 ## Nextflow version
-NXF_VER=0.29.0 nextflow run
+NXF_VER=0.29.0 nextflow run 
+
+## Running the pipelines
+You can run each pipeline by just using this command
+
+```
+NXF_VER=0.29.0 nextflow run NAME OF THE PIPELINE -bg > log.txt
+```
+
+
+For example
+
+```
+NXF_VER=0.29.0 nextflow run denovo_assembly.nf -bg > log.txt
+```
+
+You can change the parameters by editing the `params.config` file or using two `-` for replacing a particular pipeline parameter.
+
+```
+NXF_VER=0.29.0 nextflow run denovo_assembly.nf -bg --output ./myoutput > log.txt
+```
 
 ## Module denovo_assembly
 
@@ -32,7 +52,7 @@ pairs                               : ../test_data/*_{1,2}.fq.gz
 email                               : YOUREMAIL@YOURDOMAIN
 minsize (after filtering)           : 70
 genetic code                        : Universal
-strandness                          : RF
+strangeness                          : RF
 output (output folder)              : output
 minProtSize (minimum protein sized) : 100
 ```
@@ -93,7 +113,7 @@ batch_pfam                          : 2000
 
 ## Module quantify
 
-This module allows to quantify predicted genes obtained from one of the two assembly modules described before.
+This module allows the quantification of predicted genes obtained from one of the two assembly modules described before.
 
 ```bash
 ╔╗ ┬┌─┐┌─┐┌─┐┬─┐┌─┐╔═╗╦═╗╔═╗  ╔╦╗┬─┐┌─┐┌┐┌┌─┐┌─┐┬─┐┬┌─┐┌┬┐┌─┐┌┬┐┌─┐  ╔═╗┌─┐┌─┐┌─┐┌┬┐┌┐ ┬ ┬ ┬
